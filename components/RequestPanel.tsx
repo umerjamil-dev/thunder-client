@@ -121,10 +121,10 @@ export const RequestPanel = () => {
         options.body = resolveVariables(body, variables);
       }
 
-      finalUrl = url.toString(); // Assign value to the outer-scoped finalUrl
+      finalUrl = url.toString();
       if (useProxy) {
-        // Trying a more robust proxy endpoint
-        finalUrl = `https://8f65zx5p.ap-southeast.insforge.app/proxy?url=${encodeURIComponent(finalUrl)}`;
+        // Reverting to the edge endpoint as it's more likely to support POST for the workaround
+        finalUrl = `https://8f65zx5p.edge.insforge.app/proxy?url=${encodeURIComponent(finalUrl)}`;
       }
 
       const res = await fetch(finalUrl, options);
@@ -132,9 +132,17 @@ export const RequestPanel = () => {
       const duration = endTime - startTime;
       
       if (!res.ok && useProxy) {
-        // If proxy returned an error, let's show that specifically
         const errorText = await res.text();
-        throw new Error(`Proxy Error (${res.status}): ${errorText || res.statusText}`);
+        const status = res.status;
+        let message = `Proxy Error (${status}): ${errorText || res.statusText}`;
+        
+        if (status === 404 && errorText.includes('Cannot POST')) {
+          message = `Proxy Error (404): The proxy endpoint does not support sending a body with this method. Try removing the request body or disabling the Proxy.`;
+        } else if (status === 403 || status === 401) {
+          message = `Proxy Error (${status}): Access denied. The target server might be blocking the proxy.`;
+        }
+        
+        throw new Error(message);
       }
       
       let data;
