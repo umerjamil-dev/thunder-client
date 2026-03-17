@@ -15,19 +15,7 @@ export const BodyEditor = () => {
 
   const { method, body } = activeTab.request;
 
-  if (['GET', 'HEAD'].includes(method)) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 text-muted-foreground bg-card/20 rounded-xl border border-dashed border-border m-4">
-        <p className="text-sm font-medium">Standard {method} requests do not usually have a body.</p>
-        <button 
-          onClick={() => updateActiveTabRequest({ method: 'POST' })}
-          className="mt-4 text-xs text-primary hover:underline transition-all"
-        >
-          Switch to POST to add a body
-        </button>
-      </div>
-    );
-  }
+  // Method checks removed to allow body for GET (as requested)
 
   return (
     <div className="flex flex-col gap-4 p-4">

@@ -106,7 +106,15 @@ export const RequestPanel = () => {
         headers,
       };
 
-      if (['POST', 'PUT', 'PATCH'].includes(method)) {
+      if (body && method !== 'HEAD') {
+        if ((method as string) === 'GET' || (method as string) === 'HEAD') {
+          if (!useProxy) {
+            throw new Error('Browsers do not allow sending a body with GET/HEAD requests. Please enable "Proxy" in the top right to bypass this restriction.');
+          }
+          // Workaround for GET with body: Switch to POST and use override header
+          options.method = 'POST';
+          headers['X-HTTP-Method-Override'] = method;
+        }
         options.body = resolveVariables(body, variables);
       }
 
