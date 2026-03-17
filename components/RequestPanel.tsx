@@ -56,6 +56,7 @@ export const RequestPanel = () => {
     updateActiveTabResponse({ loading: true, error: null, status: null });
     
     const startTime = Date.now();
+    let finalUrl = ''; // Declared here to be accessible in catch block
     
     try {
       // Resolve variables in URL
@@ -106,7 +107,9 @@ export const RequestPanel = () => {
         headers,
       };
 
-      if (body && method !== 'HEAD') {
+      const hasBody = body && body.trim().length > 0;
+
+      if (hasBody && method !== 'HEAD') {
         if ((method as string) === 'GET' || (method as string) === 'HEAD') {
           if (!useProxy) {
             throw new Error('Browsers do not allow sending a body with GET/HEAD requests. Please enable "Proxy" in the top right to bypass this restriction.');
@@ -118,19 +121,30 @@ export const RequestPanel = () => {
         options.body = resolveVariables(body, variables);
       }
 
-      let finalUrl = url.toString();
+      finalUrl = url.toString(); // Assign value to the outer-scoped finalUrl
       if (useProxy) {
-        finalUrl = `https://8f65zx5p.edge.insforge.app/proxy?url=${encodeURIComponent(finalUrl)}`;
+        // Trying a more robust proxy endpoint
+        finalUrl = `https://8f65zx5p.ap-southeast.insforge.app/proxy?url=${encodeURIComponent(finalUrl)}`;
       }
 
       const res = await fetch(finalUrl, options);
       const endTime = Date.now();
       const duration = endTime - startTime;
       
+      if (!res.ok && useProxy) {
+        // If proxy returned an error, let's show that specifically
+        const errorText = await res.text();
+        throw new Error(`Proxy Error (${res.status}): ${errorText || res.statusText}`);
+      }
+      
       let data;
       const contentType = res.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        data = await res.json();
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = await res.text();
+        }
       } else {
         data = await res.text();
       }
@@ -151,8 +165,18 @@ export const RequestPanel = () => {
       addToHistory({ ...activeTab.request, id: Math.random().toString(36).substr(2, 9) });
 
     } catch (err: any) {
+      let errorMessage = err.message || 'An error occurred';
+      
+      if (errorMessage === 'Failed to fetch' || errorMessage.includes('NetworkError')) {
+        if (!useProxy) {
+          errorMessage = `Failed to fetch ${finalUrl}. This is usually a CORS issue or the URL is incorrect. Try enabling "Proxy" in the top right.`;
+        } else {
+          errorMessage = `Failed to fetch via Proxy (${finalUrl}). Check if the URL is correct and accessible from the internet. Note: Proxy cannot access localhost.`;
+        }
+      }
+
       updateActiveTabResponse({
-        error: err.message || 'An error occurred',
+        error: errorMessage,
         loading: false,
         status: 0,
         statusText: 'Error'
